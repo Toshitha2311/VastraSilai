@@ -1,4 +1,15 @@
+
+
 from pydantic import BaseModel, EmailStr
+
+
+class RegisterRequest(BaseModel):
+    name: str
+    phone: str
+    email: EmailStr
+    password: str
+    shop_name: str
+    address: str
 
 
 class LoginRequest(BaseModel):
@@ -6,9 +17,5 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str
-    tailor_id: str
-    name: str
-    email: str
+class AuthResponse(BaseModel):
+    message: str
