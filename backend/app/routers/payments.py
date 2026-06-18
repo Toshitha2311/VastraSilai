@@ -37,7 +37,10 @@ def list_payments(user=Depends(get_current_user), payment_status: str = None):
 @router.get("/order/{order_id}", response_model=PaymentResponse)
 def get_payment_by_order(order_id: str, user=Depends(get_current_user)):
     client = get_user_client(user["token"])
-    r = client.table("Payments").select("*").eq("order_id", order_id).single().execute()
+    try:
+        r = client.table("Payments").select("*").eq("order_id", order_id).single().execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Payment not found")
     if not r.data: raise HTTPException(status_code=404, detail="Payment not found")
     return r.data
 

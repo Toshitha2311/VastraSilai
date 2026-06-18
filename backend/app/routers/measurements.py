@@ -30,7 +30,10 @@ def list_measurements(customer_id: str, user=Depends(get_current_user)):
 def get_latest_measurement(customer_id: str, user=Depends(get_current_user)):
     client = get_user_client(user["token"])
     verify_customer(customer_id, user["tailor_id"], client)
-    r = client.table("Measurements").select("*").eq("customer_id", customer_id).order("recorded_at", desc=True).limit(1).execute()
+    try:
+        r = client.table("Measurements").select("*").eq("customer_id", customer_id).order("recorded_at", desc=True).limit(1).execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Meaurements not found")
     if not r.data: raise HTTPException(status_code=404, detail="No measurements found")
     return r.data[0]
 

@@ -40,7 +40,10 @@ def delivery_schedule(user=Depends(get_current_user)):
 @router.get("/{order_id}", response_model=OrderResponse)
 def get_order(order_id: str, user=Depends(get_current_user)):
     client = get_user_client(user["token"])
-    result = client.table("Orders").select("*").eq("order_id", order_id).single().execute()
+    try:
+        result = client.table("Orders").select("*").eq("order_id", order_id).single().execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Order not found")
     if not result.data: raise HTTPException(status_code=404, detail="Order not found")
     return result.data
 
