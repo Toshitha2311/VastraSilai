@@ -83,6 +83,8 @@ CREATE TABLE "Payments" (
     remaining_amount NUMERIC(10,2) GENERATED ALWAYS AS (total_amount - advance_amount) STORED,
     payment_status   TEXT DEFAULT 'pending'
                           CHECK (payment_status IN ('pending','partial','paid')),
+    payment_method   TEXT DEFAULT 'cash'
+                          CHECK (payment_method IN ('cash','card','upi')),
     paid_at          TIMESTAMPTZ,
     created_at       TIMESTAMPTZ DEFAULT NOW()
 );

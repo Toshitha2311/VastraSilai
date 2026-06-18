@@ -17,7 +17,10 @@ def create_payment(body: PaymentCreate, user=Depends(get_current_user)):
         payload["paid_at"] = datetime.now(timezone.utc).isoformat()
     elif payload["advance_amount"] > 0:
         payload["payment_status"] = "partial"
-    result = client.table("Payments").insert(payload).execute()
+    try:
+        result = client.table("Payments").insert(payload).execute()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create payment: {e}")
     if not result.data: raise HTTPException(status_code=400, detail="Failed to create payment")
     return result.data[0]
 
@@ -47,19 +50,32 @@ def get_payment_by_order(order_id: str, user=Depends(get_current_user)):
 @router.put("/{payment_id}", response_model=PaymentResponse)
 def update_payment(payment_id: str, body: PaymentUpdate, user=Depends(get_current_user)):
     client = get_user_client(user["token"])
-    existing = client.table("Payments").select("total_amount, advance_amount").eq("payment_id", payment_id).single().execute()
-    if not existing.data: raise HTTPException(status_code=404, detail="Payment not found")
+    try:
+        existing = client.table("Payments").select("total_amount, advance_amount").eq("payment_id", payment_id).single().execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Payment not found")
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
-    total = updates.get("total_amount", existing.data["total_amount"])
-    advance = updates.get("advance_amount", existing.data["advance_amount"])
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    total = float(updates.get("total_amount", existing.data["total_amount"]))
+    advance = float(updates.get("advance_amount", existing.data["advance_amount"]))
     if advance >= total:
         updates["payment_status"] = "paid"
         updates["paid_at"] = datetime.now(timezone.utc).isoformat()
     elif advance > 0:
         updates["payment_status"] = "partial"
+        updates["paid_at"] = None
     else:
         updates["payment_status"] = "pending"
-    result = client.table("Payments").update(updates).eq("payment_id", payment_id).execute()
+        updates["paid_at"] = None
+    try:
+        result = client.table("Payments").update(updates).eq("payment_id", payment_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to update payment: {e}")
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Payment not found")
     return result.data[0]
 
 @router.get("/summary/overview")
