@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+# from contextlib import asynccontextmanager
+# from apscheduler.schedulers.background import BackgroundScheduler
+import logging
 
 from app.routers import auth
 from app.routers import tailors
@@ -10,6 +13,23 @@ from app.routers import payments
 from app.routers import notifications
 from app.routers import analytics
 from app.routers import dashboard
+# from app.services.daily_summary import send_daily_summaries  # WhatsApp daily summary (disabled — no credentials)
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ── Scheduler: Daily summary at 8:00 AM IST (DISABLED — needs WHATSAPP_TOKEN) ─
+# scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
+# scheduler.add_job(send_daily_summaries, "cron", hour=8, minute=0, id="daily_summary")
+#
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     scheduler.start()
+#     logger.info("🕐 Daily summary scheduler started (8:00 AM IST)")
+#     yield
+#     scheduler.shutdown()
+#     logger.info("Scheduler stopped")
+
 
 app = FastAPI(
     title="VastraSilai AI Backend",
@@ -23,6 +43,7 @@ app = FastAPI(
         "name": "VastraSilai Support",
         "email": "support@vastrasilai.com",
     },
+    # lifespan=lifespan,  # Uncomment when WhatsApp credentials are added
 )
 
 # ── CORS ───────────────────────────────────────────────────────────────────────

@@ -2,28 +2,35 @@ from fastapi import APIRouter, HTTPException, Depends
 from app.schemas.notifications import NotificationCreate, NotificationResponse
 from app.supabase_client import get_user_client
 from app.auth_dependency import get_current_user
+# from app.services.whatsapp import send_whatsapp_message          # DISABLED — no WhatsApp credentials
+# from app.services.daily_summary import send_daily_summaries, build_daily_summary  # DISABLED
 from typing import List
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
+# ── Send notification (record only — WhatsApp sending disabled) ────────────────
 @router.post("/", response_model=NotificationResponse)
 def send_notification(body: NotificationCreate, user=Depends(get_current_user)):
     client = get_user_client(user["token"])
     payload = body.model_dump()
     if body.type == "whatsapp":
-        payload["sent_status"] = True
-        payload["sent_at"] = datetime.now(timezone.utc).isoformat()
+        payload["sent_status"] = False  # Would be True when WhatsApp is enabled
     result = client.table("Notifications").insert(payload).execute()
-    if not result.data: raise HTTPException(status_code=400, detail="Failed to save notification")
+    if not result.data:
+        raise HTTPException(status_code=400, detail="Failed to save notification")
     return result.data[0]
 
+
+# ── List notifications for order ───────────────────────────────────────────────
 @router.get("/order/{order_id}", response_model=List[NotificationResponse])
 def list_notifications_for_order(order_id: str, user=Depends(get_current_user)):
     client = get_user_client(user["token"])
     return (client.table("Notifications").select("*").eq("order_id", order_id).order("created_at", desc=True).execute()).data or []
 
+
+# ── Pending notifications ──────────────────────────────────────────────────────
 @router.get("/pending", response_model=List[NotificationResponse])
 def list_pending_notifications(user=Depends(get_current_user)):
     client = get_user_client(user["token"])
@@ -35,6 +42,8 @@ def list_pending_notifications(user=Depends(get_current_user)):
     if not oids: return []
     return (client.table("Notifications").select("*").in_("order_id", oids).eq("sent_status", False).order("created_at", desc=True).execute()).data or []
 
+
+# ── Mark as sent ───────────────────────────────────────────────────────────────
 @router.put("/{notification_id}/mark-sent", response_model=NotificationResponse)
 def mark_sent(notification_id: str, user=Depends(get_current_user)):
     client = get_user_client(user["token"])
@@ -42,6 +51,27 @@ def mark_sent(notification_id: str, user=Depends(get_current_user)):
     if not r.data: raise HTTPException(status_code=404, detail="Notification not found")
     return r.data[0]
 
+
+# ── Daily summary preview (works without WhatsApp) ────────────────────────────
+# @router.get("/daily-summary/preview")
+# def preview_daily_summary(user=Depends(get_current_user)):
+#     from app.supabase_client import supabase
+#     tailor = supabase.table("Tailors").select("*").eq("tailor_id", user["tailor_id"]).single().execute()
+#     summary = build_daily_summary(tailor.data, supabase)
+#     return {"message": summary}
+
+# ── Send daily summary via WhatsApp (DISABLED) ────────────────────────────────
+# @router.post("/daily-summary/send")
+# def send_my_daily_summary(user=Depends(get_current_user)):
+#     ...
+
+# ── Send to ALL tailors (DISABLED) ────────────────────────────────────────────
+# @router.post("/daily-summary/send-all")
+# def trigger_daily_summaries():
+#     ...
+
+
+# ── WhatsApp webhook (for receiving messages — future use) ─────────────────────
 @router.post("/whatsapp-webhook")
 def whatsapp_webhook(payload: dict):
     try:
@@ -55,6 +85,7 @@ def whatsapp_webhook(payload: dict):
         return {"status": "received", "reply_preview": reply}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.get("/whatsapp-webhook")
 def whatsapp_verify(hub_mode: str = None, hub_challenge: str = None, hub_verify_token: str = None):

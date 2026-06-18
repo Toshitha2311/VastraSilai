@@ -28,7 +28,10 @@ def list_customers(user=Depends(get_current_user)):
 @router.get("/{customer_id}", response_model=CustomerResponse)
 def get_customer(customer_id: str, user=Depends(get_current_user)):
     client = get_user_client(user["token"])
-    result = client.table("Customers").select("*").eq("customer_id", customer_id).eq("tailor_id", user["tailor_id"]).single().execute()
+    try:
+        result = client.table("Customers").select("*").eq("customer_id", customer_id).eq("tailor_id", user["tailor_id"]).single().execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Customer not found")
     if not result.data:
         raise HTTPException(status_code=404, detail="Customer not found")
     return result.data
