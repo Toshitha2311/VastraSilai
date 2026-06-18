@@ -1,11 +1,28 @@
 from fastapi import APIRouter, HTTPException
 from app.schemas.auth import RegisterRequest, LoginRequest, AuthResponse
-from app.supabase_client import supabase
+from app.supabase_client import supabase, get_user_client
+from supabase import create_client
+from app.config import SUPABASE_URL, SUPABASE_KEY
+import os
 
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"]
 )
+
+# Service role key bypasses RLS — needed for server-side inserts
+# when the user's session isn't available (e.g. email confirmation enabled)
+SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+
+
+def get_admin_client():
+    """
+    Returns a Supabase client that bypasses RLS.
+    Uses service_role key if available, otherwise falls back to anon key.
+    """
+    key = SERVICE_KEY if SERVICE_KEY else SUPABASE_KEY
+    client = create_client(SUPABASE_URL, key)
+    return client
 
 
 # -------------------------
@@ -16,10 +33,12 @@ router = APIRouter(
 def register(request: RegisterRequest):
 
     try:
+        # Trim email for consistency
+        email = request.email.strip()
 
         auth = supabase.auth.sign_up(
             {
-                "email": request.email,
+                "email": email,
                 "password": request.password,
             }
         )
@@ -32,12 +51,19 @@ def register(request: RegisterRequest):
 
         user_id = auth.user.id
 
-        supabase.table("TAILORS").insert(
+        # If session exists (no email confirmation), use user's token
+        # Otherwise, use admin/service client to bypass RLS
+        if auth.session and auth.session.access_token:
+            client = get_user_client(auth.session.access_token)
+        else:
+            client = get_admin_client()
+
+        client.table("Tailors").insert(
             {
                 "auth_user_id": user_id,
                 "name": request.name,
                 "phone": request.phone,
-                "email": request.email,
+                "email": email,
                 "shop_name": request.shop_name,
                 "address": request.address,
             }
@@ -62,10 +88,12 @@ def register(request: RegisterRequest):
 def login(request: LoginRequest):
 
     try:
+        # Trim email for consistency
+        email = request.email.strip()
 
         auth = supabase.auth.sign_in_with_password(
             {
-                "email": request.email,
+                "email": email,
                 "password": request.password,
             }
         )
@@ -76,8 +104,11 @@ def login(request: LoginRequest):
                 detail="Invalid email or password"
             )
 
+        # Use user's token to query (RLS-compliant)
+        client = get_user_client(auth.session.access_token)
+
         tailor = (
-            supabase.table("TAILORS")
+            client.table("Tailors")
             .select("*")
             .eq("auth_user_id", auth.user.id)
             .execute()
