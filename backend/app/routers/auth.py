@@ -33,10 +33,12 @@ def get_admin_client():
 def register(request: RegisterRequest):
 
     try:
+        # Trim email for consistency
+        email = request.email.strip()
 
         auth = supabase.auth.sign_up(
             {
-                "email": request.email,
+                "email": email,
                 "password": request.password,
             }
         )
@@ -61,7 +63,7 @@ def register(request: RegisterRequest):
                 "auth_user_id": user_id,
                 "name": request.name,
                 "phone": request.phone,
-                "email": request.email,
+                "email": email,
                 "shop_name": request.shop_name,
                 "address": request.address,
             }
@@ -86,10 +88,12 @@ def register(request: RegisterRequest):
 def login(request: LoginRequest):
 
     try:
+        # Trim email for consistency
+        email = request.email.strip()
 
         auth = supabase.auth.sign_in_with_password(
             {
-                "email": request.email,
+                "email": email,
                 "password": request.password,
             }
         )
