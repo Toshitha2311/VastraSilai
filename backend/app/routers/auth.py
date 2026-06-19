@@ -11,7 +11,8 @@ router = APIRouter(
 )
 
 # Service role key bypasses RLS — needed for server-side inserts
-# when the user's session isn't available (e.g. email confirmation enabled)
+# when the user's session isn't available (e.g. email confirmation enabled).
+# This is safe only on server-side code and must never be exposed to clients.
 SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 
@@ -26,11 +27,20 @@ def get_admin_client():
 
 
 # -------------------------
+# REQUEST HANDLERS
+# -------------------------
+
+
+# -------------------------
 # REGISTER
 # -------------------------
 
 @router.post("/register", response_model=AuthResponse)
 def register(request: RegisterRequest):
+    """Register a new tailor.
+
+    Creates a Supabase Auth user and a matching Tailors record.
+    """
 
     try:
         # Trim email for consistency
@@ -58,6 +68,7 @@ def register(request: RegisterRequest):
         else:
             client = get_admin_client()
 
+        # Insert a tailor record linked to the Supabase auth user.
         client.table("Tailors").insert(
             {
                 "auth_user_id": user_id,
@@ -86,6 +97,7 @@ def register(request: RegisterRequest):
 
 @router.post("/login")
 def login(request: LoginRequest):
+    """Authenticate a tailor and return an access token."""
 
     try:
         # Trim email for consistency
@@ -104,7 +116,8 @@ def login(request: LoginRequest):
                 detail="Invalid email or password"
             )
 
-        # Use user's token to query (RLS-compliant)
+        # Use user's token to query (RLS-compliant) and ensure the
+        # returned data is scoped to the authenticated user.
         client = get_user_client(auth.session.access_token)
 
         tailor = (

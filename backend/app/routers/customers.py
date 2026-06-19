@@ -9,6 +9,7 @@ router = APIRouter(prefix="/customers", tags=["Customers"])
 
 @router.post("/", response_model=CustomerResponse)
 def create_customer(body: CustomerCreate, user=Depends(get_current_user)):
+    """Create a customer associated with the authenticated tailor."""
     client = get_user_client(user["token"])
     payload = body.model_dump()
     payload["tailor_id"] = user["tailor_id"]
@@ -20,6 +21,7 @@ def create_customer(body: CustomerCreate, user=Depends(get_current_user)):
 
 @router.get("/", response_model=List[CustomerResponse])
 def list_customers(user=Depends(get_current_user)):
+    """List only customers belonging to the logged-in tailor."""
     client = get_user_client(user["token"])
     result = client.table("Customers").select("*").eq("tailor_id", user["tailor_id"]).order("created_at", desc=True).execute()
     return result.data or []
@@ -27,6 +29,7 @@ def list_customers(user=Depends(get_current_user)):
 
 @router.get("/{customer_id}", response_model=CustomerResponse)
 def get_customer(customer_id: str, user=Depends(get_current_user)):
+    """Fetch a single customer only if they belong to the authenticated tailor."""
     client = get_user_client(user["token"])
     try:
         result = client.table("Customers").select("*").eq("customer_id", customer_id).eq("tailor_id", user["tailor_id"]).single().execute()
