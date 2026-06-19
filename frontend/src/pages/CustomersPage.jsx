@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useLanguage } from '../context/LanguageContext';
 import { Plus, Search, User, Phone, MapPin, Mail, Upload, Edit, Save, X, BookOpen, Ruler, ArrowLeft, Trash2 } from 'lucide-react';
@@ -75,20 +76,32 @@ export default function CustomersPage() {
   const handleEditCustomer = async (e) => {
     e.preventDefault();
     setModalError('');
+    if (!name || !phone || !gender) {
+      setModalError('Please fill in required fields (Name, Phone, Gender)');
+      return;
+    }
     try {
-      await axios.put(`${API_URL}/customers/${editId}`, {
+      const res = await axios.put(`${API_URL}/customers/${editId}`, {
         name,
         phone,
         gender,
         address: address || null,
         email: email || null
       });
+      const updated = res.data;
       setShowEditModal(false);
       clearForm();
       fetchCustomers();
       if (selectedCustomer && selectedCustomer.id === editId) {
         // Refresh details
-        setSelectedCustomer(prev => ({ ...prev, name, phone, gender, address, email }));
+        setSelectedCustomer(prev => ({
+          ...prev,
+          name: updated.name,
+          phone: updated.phone,
+          gender: updated.gender,
+          address: updated.address,
+          email: updated.email
+        }));
       }
     } catch (err) {
       setModalError(err.response?.data?.detail || 'Failed to update customer');
@@ -181,6 +194,97 @@ export default function CustomersPage() {
     }
   };
 
+  const renderEditModal = () => {
+    if (!showEditModal) return null;
+    return createPortal(
+      <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-50 overflow-y-auto flex justify-center items-center p-4">
+        <div className="glass-panel border border-white/5 p-6 rounded-3xl w-full max-w-md text-left animate-fade-in relative">
+          <button
+            onClick={() => setShowEditModal(false)}
+            className="absolute top-4 right-4 text-gray-400 hover:text-white"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <h3 className="text-xl font-bold text-white font-heading mb-4">{t('editCustomer')}</h3>
+          
+          {modalError && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl">
+              {modalError}
+            </div>
+          )}
+
+          <form onSubmit={handleEditCustomer} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('name')} *</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full glass-input px-4 py-2.5 rounded-xl text-base"
+                placeholder="Enter the full name"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('phone')} *</label>
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full glass-input px-4 py-2.5 rounded-xl text-base"
+                placeholder="Enter the phone no"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('gender')} *</label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="w-full glass-input px-4 py-2.5 rounded-xl text-sm"
+              >
+                <option value="Male" className="bg-gray-950 text-white">Male</option>
+                <option value="Female" className="bg-gray-950 text-white">Female</option>
+                <option value="Other" className="bg-gray-950 text-white">Other</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('email')}</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full glass-input px-4 py-2.5 rounded-xl text-base"
+                placeholder="Enter the email address"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('address')}</label>
+              <textarea
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                rows="2"
+                className="w-full glass-input px-4 py-2.5 rounded-xl text-sm"
+                placeholder="Enter the address"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full neon-btn py-3.5 rounded-xl text-white font-bold flex items-center justify-center space-x-1.5 mt-2 cursor-pointer"
+            >
+              <span>{t('save')}</span>
+            </button>
+          </form>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
   if (selectedCustomer) {
     // Render Detail View
     return (
@@ -206,17 +310,29 @@ export default function CustomersPage() {
                   <span className="flex items-center text-purple-400 font-semibold">{t('phone')}: {selectedCustomer.phone}</span>
                 )}
                 {selectedCustomer.gender && <span className="capitalize">{t('gender')}: {t(selectedCustomer.gender === 'Male' ? 'genderMale' : selectedCustomer.gender === 'Female' ? 'genderFemale' : 'genderOther')}</span>}
-                {selectedCustomer.email && <span>{selectedCustomer.email}</span>}
+                {selectedCustomer.email && <span>{t('email')}: {selectedCustomer.email}</span>}
               </div>
             </div>
           </div>
-          <button
-            onClick={() => openEditModal(selectedCustomer)}
-            className="bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl px-4 py-2 text-sm font-semibold flex items-center space-x-1.5 transition"
-          >
-            <Edit className="w-4 h-4" />
-            <span>{t('edit')}</span>
-          </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => openEditModal(selectedCustomer)}
+              className="bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl px-4 py-2 text-sm font-semibold flex items-center space-x-1.5 transition cursor-pointer"
+            >
+              <Edit className="w-4 h-4" />
+              <span>{t('edit')}</span>
+            </button>
+            <button
+              onClick={() => {
+                handleDeleteCustomer(selectedCustomer.id);
+                setSelectedCustomer(null);
+              }}
+              className="bg-red-600/10 border border-red-500/20 hover:bg-red-600/20 text-red-400 rounded-xl px-4 py-2 text-sm font-semibold flex items-center space-x-1.5 transition cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Remove</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -382,6 +498,12 @@ export default function CustomersPage() {
                       <span className="text-white font-semibold">₹{o.total_amount}</span>
                     </div>
 
+                    {o.description && (
+                      <p className="text-xs text-gray-400 italic bg-white/5 px-2.5 py-1.5 rounded-lg border border-white/5">
+                        {o.description}
+                      </p>
+                    )}
+
                     <div className="flex justify-between text-[11px] pt-1.5 border-t border-white/5 text-gray-500">
                       <span>Paid: ₹{o.advance_amount}</span>
                       <span className="text-amber-400">Bal: ₹{o.balance_amount}</span>
@@ -393,6 +515,7 @@ export default function CustomersPage() {
           </div>
 
         </div>
+        {renderEditModal()}
       </div>
     );
   }
@@ -429,74 +552,114 @@ export default function CustomersPage() {
         />
       </div>
 
-      {/* Customer Registry Table */}
-      <div className="glass-panel rounded-3xl border border-white/5 text-left overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-          </div>
-        ) : customers.length === 0 ? (
-          <div className="py-20 text-center text-gray-500 text-sm">
-            <User className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-            <p>No customers found.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-white/5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  <th className="px-6 py-4">{t('name')}</th>
-                  <th className="px-6 py-4">{t('phone')}</th>
-                  <th className="px-6 py-4">{t('address')}</th>
-                  <th className="px-6 py-4">{t('email')}</th>
-                  <th className="px-6 py-4 text-center">{t('actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5 text-sm text-gray-300">
-                {customers.map((c) => (
-                  <tr key={c.id} className="hover:bg-white/5 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-white">{c.name}</td>
-                    <td className="px-6 py-4">{c.phone === '0000000000' ? '-' : c.phone}</td>
-                    <td className="px-6 py-4 max-w-[200px] truncate">{c.address || '-'}</td>
-                    <td className="px-6 py-4">{c.email || '-'}</td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center space-x-3">
-                        <button
-                          onClick={() => viewCustomerDetails(c)}
-                          className="bg-purple-600/10 hover:bg-purple-600/30 text-purple-400 p-2 rounded-xl transition cursor-pointer"
-                          title={t('viewDetails')}
-                        >
-                          <Ruler className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(c)}
-                          className="bg-white/5 hover:bg-white/10 text-white p-2 rounded-xl border border-white/5 transition"
-                          title={t('edit')}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCustomer(c.id)}
-                          className="bg-red-600/10 hover:bg-red-600/30 text-red-400 px-2.5 py-1.5 rounded-xl transition cursor-pointer flex items-center space-x-1 text-xs font-bold"
-                          title="Remove customer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Remove</span>
-                        </button>
+      {/* Customer Registry Cards Grid */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+        </div>
+      ) : customers.length === 0 ? (
+        <div className="glass-panel rounded-3xl border border-white/5 py-20 text-center text-gray-500 text-sm">
+          <User className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+          <p>No customers found.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
+          {customers.map((c) => {
+            // Helper to get initials
+            const nameParts = c.name.trim().split(/\s+/);
+            const initials = nameParts.length > 1
+              ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+              : nameParts[0][0]?.toUpperCase() || '?';
+
+            return (
+              <div
+                key={c.id}
+                onClick={() => viewCustomerDetails(c)}
+                className="glass-panel p-6 rounded-3xl border border-white/5 hover:border-purple-500/35 transition duration-300 flex flex-col justify-between cursor-pointer group hover:shadow-xl hover:shadow-purple-950/5"
+              >
+                <div>
+                  {/* Top: Avatar, Name & Phone, Actions */}
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex items-center space-x-3.5 min-w-0">
+                      <div className="w-12 h-12 rounded-full bg-purple-600 text-white flex items-center justify-center font-heading font-extrabold text-base flex-shrink-0 shadow-md shadow-purple-900/10">
+                        {initials}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-base font-bold text-white font-heading truncate group-hover:text-purple-400 transition-colors">
+                          {c.name}
+                        </h4>
+                        <p className="text-xs text-gray-400 flex items-center mt-1 font-medium">
+                          <Phone className="w-3.5 h-3.5 mr-1 text-purple-400 flex-shrink-0" />
+                          <span>{c.phone === '0000000000' ? '-' : c.phone}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Quick Action Buttons */}
+                    <div className="flex items-center space-x-1 flex-shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditModal(c);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl border border-transparent hover:border-white/5 transition cursor-pointer"
+                        title={t('edit')}
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCustomer(c.id);
+                        }}
+                        className="p-1.5 text-red-400/85 hover:text-red-400 hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/5 transition cursor-pointer"
+                        title="Remove customer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Info Row: Email/Address details if they exist */}
+                  {(c.address || c.email) && (
+                    <div className="mt-4 pt-4 border-t border-white/5 space-y-1.5 text-xs text-gray-400">
+                      {c.address && (
+                        <p className="flex items-start">
+                          <MapPin className="w-3.5 h-3.5 mr-1 text-gray-500 flex-shrink-0 mt-0.5" />
+                          <span className="truncate">{c.address}</span>
+                        </p>
+                      )}
+                      {c.email && (
+                        <p className="flex items-center">
+                          <Mail className="w-3.5 h-3.5 mr-1 text-gray-500 flex-shrink-0" />
+                          <span className="truncate">{c.email}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom Stats: Orders */}
+                <div className="mt-5 pt-4 border-t border-white/5">
+                  <div className="bg-white/5 px-4 py-2.5 rounded-2xl border border-white/5 flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">
+                      {t('orders')}
+                    </span>
+                    <span className="text-lg font-extrabold text-white">
+                      {c.order_count || 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Add Customer Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-50 overflow-y-auto flex justify-center items-start p-4">
-          <div className="glass-panel border border-white/5 p-6 rounded-3xl w-full max-w-md text-left animate-fade-in relative my-auto">
+      {showAddModal && createPortal(
+        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-50 overflow-y-auto flex justify-center items-center p-4">
+          <div className="glass-panel border border-white/5 p-6 rounded-3xl w-full max-w-md text-left animate-fade-in relative">
             <button
               onClick={() => setShowAddModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-white"
@@ -549,17 +712,6 @@ export default function CustomersPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('address')}</label>
-                <textarea
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  rows="2"
-                  className="w-full glass-input px-4 py-2.5 rounded-xl text-sm"
-                  placeholder="Enter the address"
-                />
-              </div>
-
-              <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('email')}</label>
                 <input
                   type="email"
@@ -570,70 +722,6 @@ export default function CustomersPage() {
                 />
               </div>
 
-              <button
-                type="submit"
-                className="w-full neon-btn py-3 rounded-xl text-white font-semibold flex items-center justify-center space-x-1.5"
-              >
-                <span>{t('save')}</span>
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Customer Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-50 overflow-y-auto flex justify-center items-start p-4">
-          <div className="glass-panel border border-white/5 p-6 rounded-3xl w-full max-w-md text-left animate-fade-in relative my-auto">
-            <button
-              onClick={() => setShowEditModal(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-xl font-bold text-white font-heading mb-4">{t('editCustomer')}</h3>
-            
-            {modalError && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl">
-                {modalError}
-              </div>
-            )}
-
-            <form onSubmit={handleEditCustomer} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('name')} *</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full glass-input px-4 py-2.5 rounded-xl text-base"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('phone')} *</label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full glass-input px-4 py-2.5 rounded-xl text-base"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('gender')} *</label>
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  className="w-full glass-input px-4 py-2.5 rounded-xl text-sm"
-                >
-                  <option value="Male" className="bg-gray-950 text-white">Male</option>
-                  <option value="Female" className="bg-gray-950 text-white">Female</option>
-                  <option value="Other" className="bg-gray-950 text-white">Other</option>
-                </select>
-              </div>
-
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('address')}</label>
                 <textarea
@@ -641,29 +729,23 @@ export default function CustomersPage() {
                   onChange={(e) => setAddress(e.target.value)}
                   rows="2"
                   className="w-full glass-input px-4 py-2.5 rounded-xl text-sm"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('email')}</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full glass-input px-4 py-2.5 rounded-xl text-base"
+                  placeholder="Enter the address"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full neon-btn py-3 rounded-xl text-white font-semibold flex items-center justify-center space-x-1.5"
+                className="w-full neon-btn py-3.5 rounded-xl text-white font-bold flex items-center justify-center space-x-1.5 mt-2 cursor-pointer"
               >
                 <span>{t('save')}</span>
               </button>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
+      {renderEditModal()}
 
     </div>
   );

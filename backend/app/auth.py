@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import User
+from app.models import User, CustomerUser
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login", auto_error=False)
 
@@ -74,3 +74,28 @@ def require_customer(current_user: User = Depends(get_current_user)) -> User:
             detail="Access denied: Customer role required"
         )
     return current_user
+
+async def get_current_customer_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> CustomerUser:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    if not token:
+        raise credentials_exception
+
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        phone: str = payload.get("sub")
+        role: str = payload.get("role")
+        if phone is None or role != "customer_user":
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+        
+    customer = db.query(CustomerUser).filter(CustomerUser.phone == phone).first()
+    if customer is None:
+        raise credentials_exception
+    return customer
+

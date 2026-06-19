@@ -59,7 +59,7 @@ def get_revenue_analytics(
         Order.tailor_id == current_user.id
     ).group_by(Customer.id, Customer.name, Customer.phone).order_by(
         func.sum(Order.total_amount).desc()
-    ).limit(5).all()
+    ).limit(20).all()
 
     top_customers = [
         TopCustomer(

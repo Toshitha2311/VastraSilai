@@ -51,6 +51,11 @@ class UserUpdate(BaseModel):
 class ForgotPasswordRequest(BaseModel):
     phone: str
 
+class ResetPasswordRequest(BaseModel):
+    phone: str
+    code: str
+    new_password: str
+
 class BypassLoginRequest(BaseModel):
     role: str
     name_or_phone: Optional[str] = None
@@ -110,6 +115,7 @@ class CustomerResponse(BaseModel):
     email: Optional[str] = None
     created_at: datetime
     measurements: Optional[MeasurementResponse] = None
+    order_count: int = 0
 
     class Config:
         from_attributes = True
@@ -150,8 +156,10 @@ class OrderCreate(BaseModel):
     delivery_date: date
     total_amount: float = Field(..., ge=0)
     advance_amount: float = Field(default=0.0, ge=0)
+    payment_method: Optional[str] = "Cash"
     transaction_id: Optional[str] = None
     status: Optional[str] = "Pending"
+    description: Optional[str] = None
 
 class OrderUpdate(BaseModel):
     cloth_type: Optional[str] = None
@@ -160,6 +168,7 @@ class OrderUpdate(BaseModel):
     total_amount: Optional[float] = None
     advance_amount: Optional[float] = None
     transaction_id: Optional[str] = None
+    description: Optional[str] = None
 
 class OrderResponse(BaseModel):
     id: int
@@ -176,6 +185,7 @@ class OrderResponse(BaseModel):
     balance_amount: float
     payment_status: str
     transaction_id: Optional[str] = None
+    description: Optional[str] = None
     
     created_at: datetime
     payments: List[PaymentResponse] = []
@@ -233,4 +243,51 @@ class DeliveryScheduleResponse(BaseModel):
     today: List[OrderResponse]
     upcoming: List[OrderResponse]
     calendar: List[Dict[str, Any]]
+
+# CustomerUser Schemas
+class CustomerUserRegister(BaseModel):
+    name: str = Field(..., min_length=2)
+    phone: str = Field(..., min_length=10)
+    email: Optional[EmailStr] = None
+    password: str = Field(..., min_length=6)
+    language: str = "en"
+
+class CustomerUserLogin(BaseModel):
+    name: str
+    password: str
+
+class CustomerUserResponse(BaseModel):
+    id: int
+    name: str
+    phone: str
+    email: Optional[str] = None
+    language: str
+    role: str = "customer_user"
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class CustomerUserToken(BaseModel):
+    access_token: str
+    token_type: str
+    role: str
+    name: str
+    language: str
+
+class TailorShopResponse(BaseModel):
+    id: int
+    name: str
+    shop_name: Optional[str] = None
+    address: Optional[str] = None
+
+class CustomerTailorDetailsResponse(BaseModel):
+    is_registered: bool
+    customer_name: Optional[str] = None
+    measurements: Optional[MeasurementResponse] = None
+    orders: List[OrderResponse] = []
+    payments: List[PaymentResponse] = []
+    notifications: List[NotificationResponse] = []
+
+
 

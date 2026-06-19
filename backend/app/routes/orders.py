@@ -96,7 +96,8 @@ def create_order(
         advance_amount=order_in.advance_amount,
         balance_amount=balance,
         payment_status=pay_status,
-        transaction_id=order_in.transaction_id
+        transaction_id=order_in.transaction_id,
+        description=order_in.description
     )
     db.add(order)
     db.commit()
@@ -107,7 +108,7 @@ def create_order(
         payment_log = Payment(
             order_id=order.id,
             amount=order_in.advance_amount,
-            payment_method="Cash",
+            payment_method=order_in.payment_method or "Cash",
             transaction_id=order_in.transaction_id,
             notes="Initial advance payment recorded during order creation."
         )
@@ -176,6 +177,8 @@ def update_order(
                     print(f"Error sending WhatsApp status update notification: {e}")
     if order_update.transaction_id is not None:
         order.transaction_id = order_update.transaction_id
+    if order_update.description is not None:
+        order.description = order_update.description
 
     # If pricing updates
     total_changed = order_update.total_amount is not None

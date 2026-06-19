@@ -131,7 +131,8 @@ def add_columns_if_missing():
                 ("sleeve", "FLOAT"),
                 ("length", "FLOAT"),
                 ("fabric_type", "VARCHAR(100)"),
-                ("quantity", "INTEGER DEFAULT 1")
+                ("quantity", "INTEGER DEFAULT 1"),
+                ("description", "TEXT")
             ]
             for col, col_type in order_cols:
                 try:

@@ -33,6 +33,11 @@ class Customer(Base):
     measurements = relationship("Measurement", back_populates="customer", uselist=False, cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="customer", cascade="all, delete-orphan")
 
+    @property
+    def order_count(self) -> int:
+        return len(self.orders) if self.orders else 0
+
+
 class Measurement(Base):
     __tablename__ = "measurements"
 
@@ -66,6 +71,7 @@ class Order(Base):
     order_date = Column(Date, nullable=False)
     delivery_date = Column(Date, nullable=False)
     status = Column(String(50), nullable=False, default="Pending")  # 'Pending', 'Completed', 'Delivered'
+    description = Column(Text, nullable=True)
     
     # Financial fields
     total_amount = Column(Float, nullable=False, default=0.0)
@@ -106,3 +112,14 @@ class Notification(Base):
     type = Column(String(50), nullable=False, default="general")  # 'delivery', 'payment', 'general'
     sent_at = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(String(50), nullable=False, default="sent")  # 'sent', 'failed'
+
+class CustomerUser(Base):
+    __tablename__ = "customer_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    phone = Column(String(50), unique=True, index=True, nullable=False)
+    email = Column(String(255), nullable=True)
+    password_hash = Column(String(255), nullable=False)
+    language = Column(String(10), nullable=False, default="en")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

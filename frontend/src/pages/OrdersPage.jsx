@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useLanguage } from '../context/LanguageContext';
 import { Plus, Search, FileText, Calendar, IndianRupee, Clock, ChevronDown, CheckCircle, Trash2, X, PlusCircle, Ruler } from 'lucide-react';
@@ -15,11 +16,13 @@ export default function OrdersPage() {
   // Create Order Modal States
   const [showAddModal, setShowAddModal] = useState(false);
   const [customerName, setCustomerName] = useState('');
-  const [clothType, setClothType] = useState('shirt');
+  const [clothType, setClothType] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
   const [advanceAmount, setAdvanceAmount] = useState('');
   const [status, setStatus] = useState('Pending');
+  const [description, setDescription] = useState('');
+  const [advancePaymentMethod, setAdvancePaymentMethod] = useState('Cash');
 
   const [modalError, setModalError] = useState('');
 
@@ -54,8 +57,8 @@ export default function OrdersPage() {
   const handleCreateOrder = async (e) => {
     e.preventDefault();
     setModalError('');
-    if (!customerName || !deliveryDate || !totalAmount) {
-      setModalError('Please fill in required fields (Customer Name, Delivery Date, Price)');
+    if (!customerName || !clothType.trim() || !deliveryDate || !totalAmount) {
+      setModalError('Please fill in required fields (Customer Name, Garment Type, Delivery Date, Price)');
       return;
     }
 
@@ -70,11 +73,13 @@ export default function OrdersPage() {
     try {
       await axios.post(`${API_URL}/orders`, {
         customer_name: customerName,
-        cloth_type: 'shirt',
+        cloth_type: clothType,
         delivery_date: deliveryDate,
         total_amount: priceVal,
         advance_amount: advanceVal,
-        status: status
+        payment_method: advancePaymentMethod,
+        status: 'Pending',
+        description: description
       });
       setShowAddModal(false);
       clearOrderForm();
@@ -141,11 +146,13 @@ export default function OrdersPage() {
 
   const clearOrderForm = () => {
     setCustomerName('');
-    setClothType('shirt');
+    setClothType('');
     setDeliveryDate('');
     setTotalAmount('');
     setAdvanceAmount('');
     setStatus('Pending');
+    setDescription('');
+    setAdvancePaymentMethod('Cash');
     setModalError('');
   };
 
@@ -206,13 +213,13 @@ export default function OrdersPage() {
           />
         </div>
 
-        {/* Cloth Type filter */}
+        {/* Garment Type filter */}
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
           className="glass-panel px-4 py-2.5 rounded-xl text-sm text-gray-300 focus:outline-none focus:border-purple-500/50 cursor-pointer"
         >
-          <option value="" className="bg-gray-950 text-white">All Cloth Types</option>
+          <option value="" className="bg-gray-950 text-white">All Garments</option>
           <option value="shirt" className="bg-gray-950 text-white">{t('shirt')}</option>
           <option value="pant" className="bg-gray-950 text-white">{t('pant')}</option>
           <option value="blouse" className="bg-gray-950 text-white">{t('blouse')}</option>
@@ -230,7 +237,6 @@ export default function OrdersPage() {
           <option value="Pending" className="bg-gray-950 text-white">Pending</option>
           <option value="In Progress" className="bg-gray-950 text-white">In Progress</option>
           <option value="Ready" className="bg-gray-950 text-white">Ready</option>
-          <option value="Delivered" className="bg-gray-950 text-white">Delivered</option>
         </select>
       </div>
 
@@ -267,8 +273,13 @@ export default function OrdersPage() {
                       <div className="font-semibold text-white">{o.customer?.name || 'Customer'}</div>
                       <div className="text-[10px] text-gray-500">{o.customer?.phone === '0000000000' ? t('notRegistered') : t('registered')}</div>
                     </td>
-                    <td className="px-6 py-4 capitalize">
-                      {t(o.cloth_type)}
+                    <td className="px-6 py-4">
+                      <div className="capitalize">{t(o.cloth_type)}</div>
+                      {o.description && (
+                        <div className="text-xs text-gray-500 max-w-[200px] truncate" title={o.description}>
+                          {o.description}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 space-y-1">
                       <div className="text-[11px] text-gray-500 font-medium">
@@ -313,7 +324,6 @@ export default function OrdersPage() {
                           <option value="Pending" className="bg-gray-950 text-white">Pending</option>
                           <option value="In Progress" className="bg-gray-950 text-white">In Progress</option>
                           <option value="Ready" className="bg-gray-950 text-white">Ready</option>
-                          <option value="Delivered" className="bg-gray-950 text-white">Delivered</option>
                         </select>
                       )}
                     </td>
@@ -352,9 +362,9 @@ export default function OrdersPage() {
       </div>
 
       {/* Create Order Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-50 overflow-y-auto flex justify-center items-start p-4">
-          <div className="glass-panel border border-white/5 p-6 rounded-3xl w-full max-w-lg text-left animate-fade-in relative my-auto">
+      {showAddModal && createPortal(
+        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-50 overflow-y-auto flex justify-center items-center p-4">
+          <div className="glass-panel border border-white/5 p-6 rounded-3xl w-full max-w-lg text-left animate-fade-in relative">
             <button
               onClick={() => setShowAddModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-white"
@@ -379,6 +389,17 @@ export default function OrdersPage() {
                   onChange={(e) => setCustomerName(e.target.value)}
                   className="w-full glass-input px-4 py-2.5 rounded-xl text-sm text-white"
                   placeholder="Enter customer name"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('clothType')} *</label>
+                <input
+                  type="text"
+                  value={clothType}
+                  onChange={(e) => setClothType(e.target.value)}
+                  className="w-full glass-input px-4 py-2.5 rounded-xl text-sm text-white"
+                  placeholder="Enter garment type (e.g., Shirt, Pant)"
                 />
               </div>
 
@@ -415,18 +436,55 @@ export default function OrdersPage() {
                 </div>
               </div>
 
+              {advanceAmount && advanceAmount !== '0' && (
+                <div className="space-y-1.5 animate-fade-in">
+                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('paymentMethod')} *</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAdvancePaymentMethod('Cash')}
+                      className={`py-2 rounded-xl text-sm font-semibold border transition cursor-pointer ${
+                        advancePaymentMethod === 'Cash'
+                          ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-950/20'
+                          : 'bg-white/5 border-white/10 text-gray-300 hover:border-white/20'
+                      }`}
+                    >
+                      Cash
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdvancePaymentMethod('UPI')}
+                      className={`py-2 rounded-xl text-sm font-semibold border transition cursor-pointer ${
+                        advancePaymentMethod === 'UPI'
+                          ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-950/20'
+                          : 'bg-white/5 border-white/10 text-gray-300 hover:border-white/20'
+                      }`}
+                    >
+                      UPI
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdvancePaymentMethod('Card')}
+                      className={`py-2 rounded-xl text-sm font-semibold border transition cursor-pointer ${
+                        advancePaymentMethod === 'Card'
+                          ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-950/20'
+                          : 'bg-white/5 border-white/10 text-gray-300 hover:border-white/20'
+                      }`}
+                    >
+                      Card
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full glass-input px-4 py-2.5 rounded-xl text-sm text-white cursor-pointer"
-                >
-                  <option value="Pending" className="bg-gray-950 text-white">Pending</option>
-                  <option value="In Progress" className="bg-gray-950 text-white">In Progress</option>
-                  <option value="Ready" className="bg-gray-950 text-white">Ready</option>
-                  <option value="Delivered" className="bg-gray-950 text-white">Delivered</option>
-                </select>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('description')}</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full glass-input px-4 py-2.5 rounded-xl text-sm text-white min-h-[80px]"
+                  placeholder="Enter order details, patterns, or notes..."
+                />
               </div>
 
               <button
@@ -437,13 +495,14 @@ export default function OrdersPage() {
               </button>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Record Payment Installment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-50 overflow-y-auto flex justify-center items-start p-4">
-          <div className="glass-panel border border-white/5 p-6 rounded-3xl w-full max-w-md text-left animate-fade-in relative my-auto">
+      {showPaymentModal && createPortal(
+        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-50 overflow-y-auto flex justify-center items-center p-4">
+          <div className="glass-panel border border-white/5 p-6 rounded-3xl w-full max-w-md text-left animate-fade-in relative">
             <button
               onClick={() => setShowPaymentModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-white"
@@ -515,7 +574,8 @@ export default function OrdersPage() {
               </button>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

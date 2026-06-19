@@ -5,8 +5,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import User
-from app.schemas import UserRegister, UserLogin, Token, UserResponse, UserUpdate, ForgotPasswordRequest, BypassLoginRequest
+from app.models import User, CustomerUser
+from app.schemas import (
+    UserRegister, UserLogin, Token, UserResponse, UserUpdate,
+    ForgotPasswordRequest, ResetPasswordRequest, BypassLoginRequest,
+    CustomerUserRegister, CustomerUserLogin, CustomerUserResponse, CustomerUserToken
+)
 from app.auth import get_password_hash, verify_password, create_access_token, get_current_user
 
 logger = logging.getLogger("AuthRouter")
@@ -127,6 +131,69 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
         "role": user.role,
         "name": user.name,
         "language": user.language
+    }
+
+@router.post("/customer/register", response_model=CustomerUserResponse)
+def register_customer(user_in: CustomerUserRegister, db: Session = Depends(get_db)):
+    logger.info(f"Customer registration attempt: name='{user_in.name}', phone='{user_in.phone}'")
+    
+    # Check if phone number is already registered
+    norm_phone = normalize_phone(user_in.phone)
+    existing_user = db.query(CustomerUser).filter(
+        (CustomerUser.phone == user_in.phone) | (CustomerUser.phone == norm_phone)
+    ).first()
+    if existing_user:
+        logger.warning(f"Customer registration failed: Phone number '{user_in.phone}' is already registered as customer '{existing_user.name}'")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number already registered"
+        )
+    
+    # Hash password and create new CustomerUser
+    hashed_password = get_password_hash(user_in.password)
+    customer = CustomerUser(
+        name=user_in.name,
+        phone=norm_phone if norm_phone else user_in.phone,
+        email=user_in.email,
+        password_hash=hashed_password,
+        language=user_in.language
+    )
+    db.add(customer)
+    db.commit()
+    db.refresh(customer)
+    logger.info(f"Customer user '{customer.name}' successfully registered")
+    return customer
+
+@router.post("/customer/login", response_model=CustomerUserToken)
+def login_customer(credentials: CustomerUserLogin, db: Session = Depends(get_db)):
+    logger.info(f"Customer login attempt: name/phone='{credentials.name}'")
+    
+    norm_phone = normalize_phone(credentials.name)
+    # Fetch customer by phone or name
+    customer = db.query(CustomerUser).filter(
+        (func.lower(CustomerUser.name) == func.lower(credentials.name)) | 
+        (CustomerUser.phone == credentials.name) | 
+        (CustomerUser.phone == norm_phone)
+    ).first()
+    
+    if not customer or not verify_password(credentials.password, customer.password_hash):
+        logger.warning(f"Customer login failed for name/phone='{credentials.name}'")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Create Access Token
+    access_token = create_access_token(
+        data={"sub": customer.phone, "role": "customer_user"}
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "role": "customer_user",
+        "name": customer.name,
+        "language": customer.language
     }
 
 @router.post("/bypass-login", response_model=Token)
@@ -252,22 +319,102 @@ def get_bypass_profiles(db: Session = Depends(get_db)):
 
 @router.post("/forgot-password")
 def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.phone == req.phone).first()
-    if not user:
-        # Avoid user enumeration by sending a standard success message anyway
-        return {"message": "If this phone number is registered, you will receive a reset code."}
+    norm_phone = normalize_phone(req.phone)
+    user = db.query(User).filter(
+        (func.lower(User.name) == func.lower(req.phone)) |
+        (User.phone == req.phone) |
+        (User.phone == norm_phone)
+    ).first()
+    if user:
+        # Simulate sending SMS/Email for Tailor/User
+        reset_code = "VS-" + str(user.id * 123 + 4567)[-6:]
+        logger.info(f"--- FORGOT PASSWORD RESET CODE SIMULATOR (TAILOR) ---")
+        logger.info(f"To: {user.phone} ({user.name})")
+        logger.info(f"Your VastraSilai AI reset code is: {reset_code}")
+        logger.info(f"-----------------------------------------------------")
+        return {
+            "message": "Reset code generated and simulated successfully. In production, this goes via Twilio/SMTP.",
+            "debug_code": reset_code  # Exposing for easy local manual verification
+        }
+
+    # If not found in User, check CustomerUser table
+    cust_user = db.query(CustomerUser).filter(
+        (func.lower(CustomerUser.name) == func.lower(req.phone)) |
+        (CustomerUser.phone == req.phone) |
+        (CustomerUser.phone == norm_phone)
+    ).first()
+    if cust_user:
+        # Simulate sending SMS/Email for Customer
+        reset_code = "VSC-" + str(cust_user.id * 321 + 7654)[-6:]
+        logger.info(f"--- FORGOT PASSWORD RESET CODE SIMULATOR (CUSTOMER) ---")
+        logger.info(f"To: {cust_user.phone} ({cust_user.name})")
+        logger.info(f"Your VastraSilai AI reset code is: {reset_code}")
+        logger.info(f"-------------------------------------------------------")
+        return {
+            "message": "Reset code generated and simulated successfully. In production, this goes via Twilio/SMTP.",
+            "debug_code": reset_code  # Exposing for easy local manual verification
+        }
     
-    # Simulate sending SMS/Email
-    reset_code = "VS-" + str(user.id * 123 + 4567)[-6:]
-    logger.info(f"--- FORGOT PASSWORD RESET CODE SIMULATOR ---")
-    logger.info(f"To: {user.phone} ({user.name})")
-    logger.info(f"Your VastraSilai AI reset code is: {reset_code}")
-    logger.info(f"--------------------------------------------")
+    # Avoid user enumeration by sending a standard success message anyway
+    return {"message": "If this phone number is registered, you will receive a reset code."}
+
+@router.post("/reset-password")
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    norm_phone = normalize_phone(req.phone)
+    user = db.query(User).filter(
+        (func.lower(User.name) == func.lower(req.phone)) |
+        (User.phone == req.phone) |
+        (User.phone == norm_phone)
+    ).first()
     
-    return {
-        "message": "Reset code generated and simulated successfully. In production, this goes via Twilio/SMTP.",
-        "debug_code": reset_code  # Exposing for easy local manual verification
-    }
+    if user:
+        if req.code.strip().upper() != ("VS-" + str(user.id * 123 + 4567)[-6:]).upper():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid reset code"
+            )
+            
+        if len(req.new_password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 6 characters"
+            )
+            
+        user.password_hash = get_password_hash(req.new_password)
+        db.add(user)
+        db.commit()
+        logger.info(f"Password reset successfully for user: {user.phone} ({user.name})")
+        return {"message": "Password reset successfully"}
+
+    cust_user = db.query(CustomerUser).filter(
+        (func.lower(CustomerUser.name) == func.lower(req.phone)) |
+        (CustomerUser.phone == req.phone) |
+        (CustomerUser.phone == norm_phone)
+    ).first()
+    
+    if cust_user:
+        if req.code.strip().upper() != ("VSC-" + str(cust_user.id * 321 + 7654)[-6:]).upper():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid reset code"
+            )
+            
+        if len(req.new_password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 6 characters"
+            )
+            
+        cust_user.password_hash = get_password_hash(req.new_password)
+        db.add(cust_user)
+        db.commit()
+        logger.info(f"Password reset successfully for customer: {cust_user.phone} ({cust_user.name})")
+        return {"message": "Password reset successfully"}
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="User not found"
+    )
 
 @router.get("/me", response_model=UserResponse)
 def read_current_user(current_user: User = Depends(get_current_user)):

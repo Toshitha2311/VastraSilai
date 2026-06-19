@@ -104,7 +104,7 @@ export default function PaymentsPage() {
                   <th className="px-6 py-4">Order Details</th>
                   <th className="px-6 py-4">Date & Time</th>
                   <th className="px-6 py-4">{t('paymentMethod')}</th>
-                  <th className="px-6 py-4">Amount Recieved</th>
+                  <th className="px-6 py-4">Amount Received</th>
                   <th className="px-6 py-4">Notes</th>
                 </tr>
               </thead>
@@ -137,7 +137,7 @@ export default function PaymentsPage() {
                       <td className="px-6 py-4 font-bold text-emerald-400">
                         + ₹{p.amount}
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-400 max-w-[200px] truncate">
+                      <td className="px-6 py-4 text-xs text-gray-400 max-w-[400px] truncate" title={p.notes || ''}>
                         {p.notes || '-'}
                       </td>
                     </tr>

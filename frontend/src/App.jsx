@@ -11,6 +11,8 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/Settings';
 import Layout from './components/Layout';
+import CustomerLogin from './pages/CustomerLogin';
+import CustomerPortal from './pages/CustomerPortal';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -21,14 +23,19 @@ export default function App() {
     if (!loading) {
       if (user) {
         if (user.role === 'tailor') {
-          // If tailor is active, keep or redirect
-          if (!page.startsWith('tailor_')) {
+          // If tailor is active, keep or redirect (allow landing page 'home')
+          if (!page.startsWith('tailor_') && page !== 'home') {
             setPage('tailor_dashboard');
+          }
+        } else if (user.role === 'customer_user') {
+          // If customer is active, redirect to customer dashboard (allow landing page 'home')
+          if (page !== 'customer_dashboard' && page !== 'home') {
+            setPage('customer_dashboard');
           }
         }
       } else {
         // If not logged in, redirect to home if they are in private pages
-        if (page !== 'home' && page !== 'login' && page !== 'register') {
+        if (page !== 'home' && page !== 'login' && page !== 'register' && page !== 'customer_login' && page !== 'customer_register') {
           setPage('home');
         }
       }
@@ -83,6 +90,18 @@ export default function App() {
 
   if (page === 'register') {
     return <Login initialMode="register" onNavigate={navigateTo} />;
+  }
+
+  if (page === 'customer_login') {
+    return <CustomerLogin initialMode="login" onNavigate={navigateTo} />;
+  }
+
+  if (page === 'customer_register') {
+    return <CustomerLogin initialMode="register" onNavigate={navigateTo} />;
+  }
+
+  if (page === 'customer_dashboard') {
+    return <CustomerPortal onNavigate={navigateTo} />;
   }
 
 

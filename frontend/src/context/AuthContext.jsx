@@ -41,7 +41,9 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       try {
-        const res = await axios.get(`${API_URL}/auth/me`);
+        const role = localStorage.getItem('vastrasilai_role');
+        const endpoint = role === 'customer_user' ? `${API_URL}/customer/me` : `${API_URL}/auth/me`;
+        const res = await axios.get(endpoint);
         setUser(res.data);
       } catch (err) {
         console.error('Session expired or invalid token', err);
@@ -56,8 +58,13 @@ export const AuthProvider = ({ children }) => {
   const login = async (name, password, role) => {
     setLoading(true);
     try {
-      console.log("Calling /auth/login with credentials:", { name, password, role });
-      const res = await axios.post(`${API_URL}/auth/login`, { name, password, role });
+      console.log("Calling login API for role:", role);
+      let res;
+      if (role === 'customer_user') {
+        res = await axios.post(`${API_URL}/auth/customer/login`, { name, password });
+      } else {
+        res = await axios.post(`${API_URL}/auth/login`, { name, password, role });
+      }
       const data = res.data;
       console.log("Login API response:", data);
       
@@ -70,7 +77,8 @@ export const AuthProvider = ({ children }) => {
       
       // Fetch user profile immediately
       axios.defaults.headers.common['Authorization'] = `Bearer ${data.access_token}`;
-      const userRes = await axios.get(`${API_URL}/auth/me`);
+      const endpoint = data.role === 'customer_user' ? `${API_URL}/customer/me` : `${API_URL}/auth/me`;
+      const userRes = await axios.get(endpoint);
       setUser(userRes.data);
       
       return userRes.data;
@@ -86,13 +94,20 @@ export const AuthProvider = ({ children }) => {
   const registerUser = async (name, phone, email, password, role, language, shopName = null, address = null, autoLogin = true) => {
     setLoading(true);
     try {
-      const payload = { name, phone, password, role, language };
-      if (email) payload.email = email;
-      if (shopName) payload.shop_name = shopName;
-      if (address) payload.address = address;
-      
-      console.log("Calling /auth/register with payload:", payload);
-      const res = await axios.post(`${API_URL}/auth/register`, payload);
+      let res;
+      if (role === 'customer_user') {
+        const payload = { name, phone, password, language };
+        if (email) payload.email = email;
+        console.log("Calling customer register with payload:", payload);
+        res = await axios.post(`${API_URL}/auth/customer/register`, payload);
+      } else {
+        const payload = { name, phone, password, role, language };
+        if (email) payload.email = email;
+        if (shopName) payload.shop_name = shopName;
+        if (address) payload.address = address;
+        console.log("Calling tailor register with payload:", payload);
+        res = await axios.post(`${API_URL}/auth/register`, payload);
+      }
       console.log("Registration API response:", res.data);
       
       if (autoLogin) {
@@ -158,8 +173,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const forgotPassword = async (phone) => {
+    try {
+      const res = await axios.post(`${API_URL}/auth/forgot-password`, { phone });
+      return res.data;
+    } catch (err) {
+      throw getErrorMessage(err);
+    }
+  };
+
+  const resetPassword = async (phone, code, newPassword) => {
+    try {
+      const res = await axios.post(`${API_URL}/auth/reset-password`, { phone, code, new_password: newPassword });
+      return res.data;
+    } catch (err) {
+      throw getErrorMessage(err);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, registerUser, bypassLogin, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, token, loading, login, registerUser, bypassLogin, logout, updateProfile, forgotPassword, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

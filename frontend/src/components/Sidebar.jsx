@@ -23,7 +23,7 @@ export default function Sidebar({ activePage, onNavigate }) {
   };
 
   return (
-    <aside className="w-64 bg-gray-950 border-r border-white/5 h-screen flex flex-col fixed left-0 top-0 z-30">
+    <aside className="w-64 bg-gray-950/75 backdrop-blur-xl border-r border-white/5 h-screen flex flex-col fixed left-0 top-0 z-30">
       
       {/* Brand Header */}
       <div className="p-6 border-b border-white/5 flex items-center space-x-3 cursor-pointer" onClick={() => onNavigate('tailor_dashboard')}>

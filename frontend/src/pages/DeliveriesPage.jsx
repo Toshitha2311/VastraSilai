@@ -318,10 +318,6 @@ export default function DeliveriesPage() {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/60 inline-block"></span>
               <span>Ready for Collection</span>
             </span>
-            <span className="flex items-center space-x-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-500/60 inline-block"></span>
-              <span>Delivered</span>
-            </span>
           </div>
 
         </div>
