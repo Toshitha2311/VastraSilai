@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useLanguage } from '../context/LanguageContext';
 import { Plus, Search, User, Phone, MapPin, Mail, Upload, Edit, Save, X, BookOpen, Ruler, ArrowLeft, Trash2, Image } from 'lucide-react';
-import { API_URL } from '../context/AuthContext';
+import { API_URL, getMediaUrl } from '../context/AuthContext';
 
 export default function CustomersPage() {
   const { t } = useLanguage();
@@ -474,7 +474,7 @@ export default function CustomersPage() {
                 <div className="measurement-card border rounded-2xl p-2 flex items-center justify-center h-40 relative overflow-hidden transition-all duration-300">
                   {measurements.reference_image_url ? (
                     <img
-                      src={measurements.reference_image_url}
+                      src={getMediaUrl(measurements.reference_image_url)}
                       alt="Design Reference Sketch"
                       className="max-h-full object-contain rounded-lg shadow-sm"
                     />

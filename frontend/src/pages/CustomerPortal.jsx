@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { ShoppingBag, CreditCard, Bell, Ruler, Clock, CheckCircle, Truck, RefreshCw, Scissors, ArrowLeft, Store, MapPin, AlertTriangle, Search, User } from 'lucide-react';
-import { API_URL } from '../context/AuthContext';
+import { API_URL, getMediaUrl } from '../context/AuthContext';
 
 export default function CustomerPortal() {
   const { user, logout } = useAuth();
@@ -589,7 +589,7 @@ export default function CustomerPortal() {
                       <span className="measurement-label text-[10px] font-black uppercase tracking-wider block">Reference Sketch</span>
                       <div className="measurement-card border rounded-xl p-2 h-32 flex items-center justify-center overflow-hidden transition-all duration-300">
                         <img
-                          src={dashboardData.measurements.reference_image_url}
+                          src={getMediaUrl(dashboardData.measurements.reference_image_url)}
                           alt="Reference Sketch"
                           className="max-h-full object-contain rounded-lg shadow-sm"
                         />

@@ -3,7 +3,16 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
-const API_URL = '/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
+const getMediaUrl = (path) => {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const baseUrl = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
+    : '';
+  return `${baseUrl}${path}`;
+};
 
 const getErrorMessage = (err) => {
   const detail = err.response?.data?.detail;
@@ -199,4 +208,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-export { API_URL };
+export { API_URL, getMediaUrl };
