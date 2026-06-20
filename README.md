@@ -76,3 +76,4 @@ To link your live Supabase PostgreSQL database:
    - **Revenue Analytics:** Custom vector SVG graphics modeling weekly collections and monthly revenue paths.
    - **WhatsApp Simulators:** View message audit dispatch registers and trigger the daily 8 AM automated collection reports manually.
 3. **Customer Workspace:** Log in as a customer using the customer's phone number to view order progress tracks, expected collections dates, payment histories, and measurement charts.
+
